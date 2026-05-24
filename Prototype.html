@@ -1,0 +1,338 @@
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <title>領収書・請求書 AI抽出・管理システム</title>
+    <!-- Google Fonts (Outfit & Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #f8fafc; --panel: #ffffff; --panel-glass: rgba(255, 255, 255, 0.85);
+        --primary: #0f172a; --primary-light: #1e293b; --accent: #0d9488;
+        --accent-hover: #0f766e; --accent-light: #ccfbf1; --accent-text: #115e59;
+        --border: #e2e8f0; --text: #0f172a; --text-muted: #64748b;
+        --success: #10b981; --success-light: #d1fae5; --success-text: #065f46;
+        --danger: #ef4444; --danger-light: #fee2e2; --danger-text: #991b1b;
+        --radius: 12px; --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+      header { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; background: var(--panel-glass); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+      .logo-area { display: flex; align-items: center; gap: 12px; }
+      .logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--accent), var(--primary)); border-radius: 10px; display: grid; place-items: center; color: white; font-weight: 800; }
+      h1 { font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; background: linear-gradient(90deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      nav { display: flex; gap: 8px; }
+      .nav-tab { padding: 8px 16px; border-radius: 8px; color: var(--text-muted); font-weight: 500; font-size: 14px; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 8px; }
+      .nav-tab.active { color: var(--accent-text); background: var(--accent-light); font-weight: 600; }
+      .tab-content { display: none; padding: 24px; flex: 1; }
+      .tab-content.active { display: flex; flex-direction: column; }
+      .status-bar { background: var(--primary-light); color: white; padding: 8px 28px; font-size: 13px; display: flex; align-items: center; justify-content: space-between; }
+      .workspace-grid { display: grid; grid-template-columns: 260px 1.25fr 0.75fr; gap: 20px; height: calc(100vh - 150px); }
+      .glass-panel { background: var(--panel-glass); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+      .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+      .btn { background: var(--accent); color: white; border: none; padding: 10px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; }
+      .btn:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+      .queue-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+      .queue-item { padding: 12px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; transition: var(--transition); }
+      .queue-item.active { border-color: var(--accent); background: var(--accent-light); }
+      .preview-body { flex: 1; background: #f1f5f9; display: grid; place-items: center; position: relative; overflow: hidden; }
+      .preview-frame { width: 100%; height: 100%; border: 0; object-fit: contain; }
+      .form-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+      .form-group { display: flex; flex-direction: column; gap: 6px; }
+      .form-group label { font-size: 12.5px; font-weight: 700; }
+      .input-wrapper input, .input-wrapper textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 14px; }
+      .candidate-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .chip { padding: 4px 10px; border-radius: 20px; font-size: 11.5px; background: #f1f5f9; border: 1px solid var(--border); cursor: pointer; }
+      .stats-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+      .stat-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow); }
+      .stat-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+      .stat-value { font-size: 28px; font-weight: 700; color: var(--primary); }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }
+      th { background: #f8fafc; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <div id="statusBar" class="status-bar">
+      <span id="statusText">システム初期化中...</span>
+      <div id="statusLoader" style="display:none;">Loading...</div>
+    </div>
+    <header>
+      <div class="logo-area"><div class="logo-icon">AI</div><h1>領収書・請求書 AI抽出・管理</h1></div>
+      <nav>
+        <div class="nav-tab active" data-tab="extract">AI抽出・確認</div>
+        <div class="nav-tab" data-tab="dashboard">ダッシュボード</div>
+        <div class="nav-tab" data-tab="master">利用者マスタ</div>
+        <div class="nav-tab" data-tab="settings">環境設定</div>
+      </nav>
+    </header>
+    <main>
+      <section id="tab-extract" class="tab-content active">
+        <div class="workspace-grid">
+          <article class="glass-panel">
+            <div class="panel-header"><span>処理ファイルキュー</span><button id="btnDriveSync" class="btn">Drive同期</button></div>
+            <div id="dropArea" style="padding:15px; border:2px dashed var(--border); margin:10px; text-align:center; cursor:pointer; font-size:12px; color:var(--text-muted);">
+              ここをクリックまたはドロップ<input id="fileInput" type="file" multiple style="display:none;">
+            </div>
+            <div id="queueList" class="queue-list"></div>
+          </article>
+          <article class="glass-panel">
+            <div class="panel-header"><span id="previewTitle">プレビュー</span></div>
+            <div class="preview-body" id="previewBody"></div>
+          </article>
+          <article class="glass-panel">
+            <div class="panel-header"><span>AI抽出結果・確定</span><button id="btnAnalyze" class="btn" disabled>AI抽出実行</button></div>
+            <div class="form-body">
+              <div class="form-group"><label>利用者名</label><div class="input-wrapper"><input id="inpUserName" type="text" list="userMasterList"><datalist id="userMasterList"></datalist></div><div id="chipsUserName" class="candidate-chips"></div></div>
+              <div class="form-group"><label>日付</label><div class="input-wrapper"><input id="inpDate" type="date"></div><div id="chipsDate" class="candidate-chips"></div></div>
+              <div class="form-group"><label>摘要</label><div class="input-wrapper"><textarea id="inpSummary" rows="2"></textarea></div><div id="chipsSummary" class="candidate-chips"></div></div>
+              <div class="form-group"><label>金額</label><div class="input-wrapper"><input id="inpAmount" type="text"></div><div id="chipsAmount" class="candidate-chips"></div></div>
+              <div style="background:#f8fafc; padding:10px; border-radius:6px; border:1px dashed var(--border); font-size:11px; font-family:monospace; word-break:break-all;" id="previewFileName">-</div>
+            </div>
+            <div style="padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px; background:rgba(248,250,252,0.5);">
+              <button id="btnSaveProcessed" class="btn" disabled>確定して保存</button>
+              <button id="btnSaveError" class="btn" style="background:var(--danger);" disabled>エラー分類</button>
+            </div>
+          </article>
+        </div>
+      </section>
+      <section id="tab-dashboard" class="tab-content">
+        <div class="dashboard-grid">
+          <div class="stats-cards">
+            <div class="stat-card"><span class="stat-label">未処理</span><span class="stat-value" id="kpiInput">0</span></div>
+            <div class="stat-card"><span class="stat-label">処理済み</span><span class="stat-value" id="kpiProcessed">0</span></div>
+            <div class="stat-card"><span class="stat-label">エラー</span><span class="stat-value" id="kpiError">0</span></div>
+            <div class="stat-card"><span class="stat-label">総保存数</span><span class="stat-value" id="kpiTotal">0</span></div>
+          </div>
+          <div class="glass-panel" style="padding:20px;">
+            <div class="panel-header"><span>直近の履歴</span><button id="btnRefreshStats" class="btn">更新</button></div>
+            <div style="overflow-x:auto;"><table id="historyTable"><thead><tr><th>日時</th><th>利用者</th><th>日付</th><th>金額</th><th>ステータス</th></tr></thead><tbody id="historyTableBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+      <section id="tab-master" class="tab-content">
+        <div class="master-grid">
+          <div class="glass-panel" style="padding:20px;"><h3>登録メンバー一覧</h3><div id="masterList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin-top:15px;"></div></div>
+          <div class="glass-panel" style="padding:20px;"><h3>新規メンバー追加</h3><input id="inpNewUserName" type="text" style="width:100%; padding:10px; margin:15px 0;"><button id="btnMasterAdd" class="btn" style="width:100%;">マスタに追加</button></div>
+        </div>
+      </section>
+      <section id="tab-settings" class="tab-content">
+        <div class="glass-panel" style="padding:24px;"><h3>環境設定</h3><p id="propSpreadsheetId" style="margin-top:10px; font-family:monospace;"></p><button id="btnSetupEnv" class="btn" style="margin-top:20px;">デモ環境を自動作成</button></div>
+      </section>
+    </main>
+    <script>
+      // 画面状態はここに集約します。GASのHTML ServiceはSPAで動かすため、
+      // 選択中ファイル・処理キュー・利用者マスタを明示的に保持します。
+      const state = { queue: [], activeQueueIndex: -1, userMaster: [] };
+      let els = {};
+      function initElements() {
+        els = {
+          navTabs: document.querySelectorAll('.nav-tab'), tabContents: document.querySelectorAll('.tab-content'),
+          statusText: document.getElementById('statusText'), statusLoader: document.getElementById('statusLoader'),
+          queueList: document.getElementById('queueList'), fileInput: document.getElementById('fileInput'),
+          dropArea: document.getElementById('dropArea'), btnDriveSync: document.getElementById('btnDriveSync'),
+          previewBody: document.getElementById('previewBody'), previewTitle: document.getElementById('previewTitle'),
+          btnAnalyze: document.getElementById('btnAnalyze'), btnSaveProcessed: document.getElementById('btnSaveProcessed'), btnSaveError: document.getElementById('btnSaveError'),
+          inpUserName: document.getElementById('inpUserName'), inpDate: document.getElementById('inpDate'),
+          inpSummary: document.getElementById('inpSummary'), inpAmount: document.getElementById('inpAmount'),
+          userMasterList: document.getElementById('userMasterList'), previewFileName: document.getElementById('previewFileName'),
+          chipsUserName: document.getElementById('chipsUserName'), chipsDate: document.getElementById('chipsDate'),
+          chipsSummary: document.getElementById('chipsSummary'), chipsAmount: document.getElementById('chipsAmount'),
+          kpiInput: document.getElementById('kpiInput'), kpiProcessed: document.getElementById('kpiProcessed'),
+          kpiError: document.getElementById('kpiError'), kpiTotal: document.getElementById('kpiTotal'),
+          historyTableBody: document.getElementById('historyTableBody'), btnRefreshStats: document.getElementById('btnRefreshStats'),
+          masterList: document.getElementById('masterList'), inpNewUserName: document.getElementById('inpNewUserName'),
+          btnMasterAdd: document.getElementById('btnMasterAdd'), btnSetupEnv: document.getElementById('btnSetupEnv'),
+          propSpreadsheetId: document.getElementById('propSpreadsheetId')
+        };
+      }
+      window.addEventListener('DOMContentLoaded', () => { initElements(); setupListeners(); refreshAllData(); });
+      function setupListeners() {
+        els.navTabs.forEach(tab => tab.addEventListener('click', () => {
+          els.navTabs.forEach(t => t.classList.remove('active')); els.tabContents.forEach(c => c.classList.remove('active'));
+          tab.classList.add('active'); document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+          if (tab.dataset.tab === 'dashboard') fetchStats();
+        }));
+        els.dropArea.addEventListener('click', () => els.fileInput.click());
+        els.fileInput.addEventListener('change', (e) => processFiles(e.target.files));
+        els.btnDriveSync.addEventListener('click', syncDrive);
+        els.btnAnalyze.addEventListener('click', analyzeActive);
+        els.btnSaveProcessed.addEventListener('click', () => save('processed'));
+        els.btnSaveError.addEventListener('click', () => save('error'));
+        els.btnMasterAdd.addEventListener('click', addMaster);
+        els.btnSetupEnv.addEventListener('click', setupEnv);
+        els.btnRefreshStats.addEventListener('click', fetchStats);
+      }
+      function showStatus(txt, loading = false) { els.statusText.textContent = txt; els.statusLoader.style.display = loading ? 'block' : 'none'; }
+      function refreshAllData() {
+        showStatus('マスタ取得中...', true);
+        google.script.run
+          .withSuccessHandler(users => { state.userMaster = users || []; updateMasterUI(); showStatus('準備完了'); })
+          .withFailureHandler(handleFailure)
+          .getUsersMaster();
+      }
+      function syncDrive() {
+        showStatus('Drive同期中...', true);
+        google.script.run
+          .withSuccessHandler(files => {
+            (files || []).forEach(f => {
+              // GAS側のidと画面側のdriveFileIdを統一し、プレビュー・AI解析・移動処理で同じIDを使います。
+              const driveFileId = f.driveFileId || f.id;
+              if (!state.queue.find(q => q.driveFileId === driveFileId)) {
+                state.queue.push({ ...f, id: driveFileId, driveFileId, fileName: f.fileName || f.name, status: 'pending' });
+              }
+            });
+            renderQueue(); showStatus(`同期完了: ${files.length}件`);
+          })
+          .withFailureHandler(handleFailure)
+          .getInputFilesFromDrive();
+      }
+      function processFiles(files) {
+        Array.from(files).forEach(f => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            // PCアップロードはDrive IDを持たないため、保存時に新規ファイルとして処理済みフォルダへ作成します。
+            state.queue.push({ name: f.name, fileName: f.name, mimeType: f.type, base64: e.target.result.split(',')[1], status: 'pending' });
+            renderQueue();
+          };
+          reader.onerror = () => showStatus(`ファイル読込に失敗しました: ${f.name}`);
+          reader.readAsDataURL(f);
+        });
+      }
+      function renderQueue() {
+        els.queueList.innerHTML = state.queue.length ? '' : '<div style="font-size:12px; color:#999; padding:20px;">空です</div>';
+        state.queue.forEach((q, i) => {
+          const div = document.createElement('div'); div.className = `queue-item ${i === state.activeQueueIndex ? 'active' : ''}`;
+          div.textContent = q.name || q.fileName; div.onclick = () => selectItem(i); els.queueList.appendChild(div);
+        });
+      }
+      function selectItem(i) {
+        state.activeQueueIndex = i; renderQueue(); const item = state.queue[i];
+        clearForm(false);
+        els.previewTitle.textContent = item.name || item.fileName; els.previewBody.innerHTML = '読み込み中...';
+        const showPreview = (base64) => {
+          const url = `data:${item.mimeType};base64,${base64}`;
+          els.previewBody.innerHTML = item.mimeType === 'application/pdf' ? `<iframe src="${url}" class="preview-frame"></iframe>` : `<img src="${url}" class="preview-frame">`;
+          els.btnAnalyze.disabled = false;
+        };
+        if (item.base64) showPreview(item.base64);
+        else google.script.run
+          .withSuccessHandler(url => { item.base64 = url.split(',')[1]; showPreview(item.base64); })
+          .withFailureHandler(handleFailure)
+          .getFileBase64(item.driveFileId || item.id);
+      }
+      function analyzeActive() {
+        const item = state.queue[state.activeQueueIndex];
+        if (!item) return showStatus('解析対象ファイルを選択してください。');
+        showStatus('AI解析中...', true);
+        google.script.run.withSuccessHandler(res => {
+          const f = res.fields; els.inpUserName.value = getVal(f.userName); els.inpDate.value = getVal(f.date);
+          els.inpSummary.value = getVal(f.summary); els.inpAmount.value = getVal(f.amount);
+          renderChips('chipsUserName', 'inpUserName', f.userName); renderChips('chipsDate', 'inpDate', f.date);
+          renderChips('chipsSummary', 'inpSummary', f.summary); renderChips('chipsAmount', 'inpAmount', f.amount);
+          updatePreviewFileName();
+          els.btnSaveProcessed.disabled = false; els.btnSaveError.disabled = false; showStatus('解析完了');
+        }).withFailureHandler(handleFailure).analyzeReceiptPrototypeUpload(item);
+      }
+      function getVal(f) { return f && f.candidates ? f.candidates[0] : (f || ''); }
+      function renderChips(cid, iid, f) {
+        const c = document.getElementById(cid); c.innerHTML = '';
+        if (f && f.candidates) f.candidates.forEach(cand => {
+          const s = document.createElement('span'); s.className = 'chip'; s.textContent = cand;
+          s.onclick = () => { document.getElementById(iid).value = cand; }; c.appendChild(s);
+        });
+      }
+      function save(status) {
+        const item = state.queue[state.activeQueueIndex];
+        if (!item) return showStatus('保存対象ファイルを選択してください。');
+        const payload = { ...item, status, review: { userName: els.inpUserName.value, date: els.inpDate.value, summary: els.inpSummary.value, amount: els.inpAmount.value } };
+        showStatus('保存中...', true);
+        google.script.run
+          .withSuccessHandler(res => {
+            state.queue.splice(state.activeQueueIndex, 1);
+            state.activeQueueIndex = -1;
+            renderQueue();
+            clearForm(true);
+            showStatus(`保存完了: ${res.storedFileName}`);
+          })
+          .withFailureHandler(handleFailure)
+          .saveReceiptPrototypeReview(payload);
+      }
+      function fetchStats() {
+        google.script.run.withSuccessHandler(s => {
+          els.kpiInput.textContent = s.folderStats.input; els.kpiProcessed.textContent = s.folderStats.processed;
+          els.kpiError.textContent = s.folderStats.error; els.kpiTotal.textContent = s.totalSaved;
+          renderHistory(s.history || []);
+        }).withFailureHandler(handleFailure).getDashboardStats();
+      }
+      function updateMasterUI() {
+        els.userMasterList.innerHTML = '';
+        state.userMaster.forEach(u => {
+          const option = document.createElement('option');
+          option.value = u;
+          els.userMasterList.appendChild(option);
+        });
+        els.masterList.innerHTML = '';
+        state.userMaster.forEach(u => {
+          const div = document.createElement('div');
+          div.style.cssText = 'background:white; border:1px solid var(--border); padding:10px; border-radius:8px; font-weight:600;';
+          div.textContent = u;
+          els.masterList.appendChild(div);
+        });
+      }
+      function addMaster() {
+        const name = els.inpNewUserName.value; if (!name) return;
+        google.script.run
+          .withSuccessHandler(users => { state.userMaster = users || []; updateMasterUI(); els.inpNewUserName.value = ''; showStatus('利用者マスタを更新しました。'); })
+          .withFailureHandler(handleFailure)
+          .addOrDeleteUserMaster('add', name);
+      }
+      function setupEnv() {
+        showStatus('環境構築中...', true);
+        google.script.run
+          .withSuccessHandler(res => { els.propSpreadsheetId.textContent = 'Spreadsheet ID: ' + res.spreadsheetId; showStatus('構築完了'); refreshAllData(); })
+          .withFailureHandler(handleFailure)
+          .setupPrototypeEnvironment();
+      }
+      ['inpUserName', 'inpDate', 'inpSummary', 'inpAmount'].forEach(id => {
+        document.addEventListener('input', (e) => { if (e.target && e.target.id === id) updatePreviewFileName(); });
+      });
+      function updatePreviewFileName() {
+        const item = state.queue[state.activeQueueIndex];
+        const ext = item && (item.name || '').match(/\.[^.]+$/);
+        const safe = [els.inpUserName.value || 'unknown', els.inpDate.value || 'unknown', els.inpSummary.value || '領収書']
+          .map(v => String(v).trim().replace(/[\\/:*?"<>|#%{}~&]/g, '_').replace(/\s+/g, '_').slice(0, 30))
+          .join('_');
+        els.previewFileName.textContent = `${safe}${ext ? ext[0].toLowerCase() : ''}`;
+      }
+      function clearForm(clearPreview) {
+        // ファイル切替・保存後に前の抽出結果が残ると誤保存の原因になるため、入力欄を明示的に初期化します。
+        els.inpUserName.value = ''; els.inpDate.value = ''; els.inpSummary.value = ''; els.inpAmount.value = '';
+        els.chipsUserName.innerHTML = ''; els.chipsDate.innerHTML = ''; els.chipsSummary.innerHTML = ''; els.chipsAmount.innerHTML = '';
+        els.previewFileName.textContent = '-';
+        els.btnAnalyze.disabled = true; els.btnSaveProcessed.disabled = true; els.btnSaveError.disabled = true;
+        if (clearPreview) { els.previewBody.innerHTML = ''; els.previewTitle.textContent = 'プレビュー'; }
+      }
+      function renderHistory(history) {
+        els.historyTableBody.innerHTML = '';
+        history.forEach(h => {
+          const tr = document.createElement('tr');
+          [h.savedAt, h.userName, h.date, h.amount, h.status].forEach(v => {
+            const td = document.createElement('td');
+            td.textContent = v || '';
+            tr.appendChild(td);
+          });
+          els.historyTableBody.appendChild(tr);
+        });
+      }
+      function handleFailure(error) {
+        const message = error && error.message ? error.message : String(error);
+        showStatus(`エラー: ${message}`, false);
+      }
+    </script>
+  </body>
+</html>

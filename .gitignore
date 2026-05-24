@@ -1,0 +1,9 @@
+.antigravitycli/
+node_modules/
+.env
+.env.*
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
